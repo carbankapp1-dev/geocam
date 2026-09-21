@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validação de Foto</title>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #0a1628;
+    color: #eef2f6;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+  main {
+    width: 100%;
+    max-width: 480px;
+    padding: 20px 16px 40px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #7f93ad; margin-bottom: 18px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .badge.ok { background: rgba(69,212,146,0.15); color: #45d492; }
+  img.foto {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid #1b2e4a;
+    margin-bottom: 16px;
+    display: block;
+  }
+  .card {
+    background: #101f38;
+    border: 1px solid #1b2e4a;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid #1b2e4a;
+    font-size: 13.5px;
+  }
+  .row:last-child { border-bottom: none; }
+  .row .k { color: #9db3cc; }
+  .row .v { color: #eef2f6; text-align: right; font-weight: 500; }
+  .hash {
+    font-family: monospace;
+    font-size: 11px;
+    word-break: break-all;
+    color: #7f93ad;
+  }
+  .hidden { display: none !important; }
+  footer { text-align: center; font-size: 11.5px; color: #4f6280; margin-top: 10px; }
+  .btn-download {
+    display: block;
+    width: 100%;
+    padding: 13px 10px;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    border: 1px solid #45d492;
+    background: rgba(69,212,146,0.12);
+    color: #45d492;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-download:active { opacity: 0.75; }
+  .link-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #101f38;
+    border: 1px solid #1b2e4a;
+    border-radius: 10px;
+    padding: 10px 10px 10px 14px;
+    margin-bottom: 10px;
+  }
+  .link-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: #9db3cc;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .btn-copy {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid #263c60;
+    background: #16233b;
+    color: #9db3cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .btn-copy.copied { color: #45d492; border-color: #45d492; }
+  .btn-copy:active { opacity: 0.7; }
+
+  /* ---------- Tela de código de acesso ---------- */
+  .gate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    text-align: center;
+    gap: 6px;
+  }
+  .gate .icon { font-size: 40px; margin-bottom: 6px; }
+  .gate h2 { font-size: 18px; margin: 0; }
+  .gate p { font-size: 13px; color: #7f93ad; margin: 4px 0 20px; max-width: 320px; }
+  .gate input {
+    width: 100%;
+    max-width: 280px;
+    text-align: center;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-size: 20px;
+    font-weight: 600;
+    background: #101f38;
+    border: 1px solid #263c60;
+    color: #eef2f6;
+    border-radius: 10px;
+    padding: 14px 12px;
+    outline: none;
+    margin-bottom: 14px;
+  }
+  .gate input:focus { border-color: #45d492; }
+  .gate button {
+    width: 100%;
+    max-width: 280px;
+    padding: 13px 10px;
+    border-radius: 10px;
+    border: none;
+    background: #45d492;
+    color: #0a1628;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .gate button:disabled { opacity: 0.5; }
+  .gate button:active:not(:disabled) { opacity: 0.75; }
+  .gate .error-msg { color: #ff7a7a; font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+  @media print {
+    body { background: #ffffff; color: #111827; }
+    .btn-download { display: none !important; }
+    .link-box { display: none !important; }
+    .card { background: #ffffff; border: 1px solid #d1d9e6; break-inside: avoid; }
+    .row { border-bottom-color: #e2e8f0; }
+    .row .k { color: #4b5563; }
+    .row .v { color: #111827; }
+    .hash { color: #4b5563; }
+    .badge.ok { background: #e6f9f0; color: #0f9d58; }
+    img.foto { border-color: #d1d9e6; }
+    footer { color: #6b7280; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ---------- TELA 1: pedir o código ---------- -->
+  <div id="gateScreen" class="gate">
+    <div class="icon">🔒</div>
+    <h2>Acesso restrito</h2>
+    <p>Digite seu código pessoal para visualizar este registro.</p>
+    <input id="codigoInput" type="text" maxlength="12" placeholder="SEU CÓDIGO" autocomplete="off" autocapitalize="characters">
+    <button id="btnValidar">Validar</button>
+    <div id="gateError" class="error-msg"></div>
+  </div>
+
+  <!-- ---------- TELA 2: conteúdo (só aparece após o código certo) ---------- -->
+  <div id="contentScreen" class="hidden">
+    <h1>Validação de Foto</h1>
+    <p class="sub">Registro oficial consultado direto do banco de dados</p>
+
+    <div id="result" class="hidden">
+      <div class="badge ok">✔ Registro autêntico</div>
+
+      <img id="foto" class="foto" alt="Foto registrada">
+
+      <div class="card">
+        <div class="row"><span class="k">Código DN</span><span class="v" id="vDn">—</span></div>
+        <div class="row"><span class="k">Loja</span><span class="v" id="vLoja">—</span></div>
+        <div class="row"><span class="k">Responsável</span><span class="v" id="vResp">—</span></div>
+        <div class="row"><span class="k">Data/hora do registro</span><span class="v" id="vData">—</span></div>
+        <div class="row"><span class="k">Coordenadas</span><span class="v" id="vCoord">—</span></div>
+        <div class="row"><span class="k">Endereço</span><span class="v" id="vEndereco">—</span></div>
+      </div>
+
+      <div class="card">
+        <div class="row"><span class="k">ID do registro</span><span class="v hash" id="vId">—</span></div>
+        <div class="row"><span class="k">Hash SHA-256 da imagem</span></div>
+        <div class="hash" id="vHash">—</div>
+        <div class="row" style="margin-top:8px;"><span class="k">Consultado por</span><span class="v" id="vAcessoPor">—</span></div>
+      </div>
+
+      <button id="btnPrint" class="btn-download">🖨️ Imprimir / Salvar como PDF</button>
+
+      <div class="link-box">
+        <span class="link-text" id="verifyLink">—</span>
+        <button id="btnCopy" class="btn-copy" title="Copiar link" aria-label="Copiar link">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <footer>Consulta feita diretamente no banco de dados — este conteúdo não pode ser adulterado</footer>
+  </div>
+</main>
+
+<script src="worker-config.js"></script>
+<script>
+const params = new URLSearchParams(window.location.search);
+const id = params.get('id');
+
+const gateScreen = document.getElementById('gateScreen');
+const contentScreen = document.getElementById('contentScreen');
+const codigoInput = document.getElementById('codigoInput');
+const btnValidar = document.getElementById('btnValidar');
+const gateError = document.getElementById('gateError');
+
+async function validarCodigo() {
+  const codigo = codigoInput.value.trim().toUpperCase();
+  if (!codigo) {
+    gateError.textContent = 'Digite seu código.';
+    return;
+  }
+  if (!id) {
+    gateError.textContent = 'Link inválido — falta o ID do registro.';
+    return;
+  }
+
+  btnValidar.disabled = true;
+  btnValidar.textContent = 'Validando…';
+  gateError.textContent = '';
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, codigo })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      gateError.textContent = data.error || 'Código inválido.';
+      btnValidar.disabled = false;
+      btnValidar.textContent = 'Validar';
+      return;
+    }
+
+    gateScreen.classList.add('hidden');
+    contentScreen.classList.remove('hidden');
+    renderFoto(data.foto, data.acessoPor);
+  } catch (err) {
+    gateError.textContent = 'Erro de conexão. Tente novamente.';
+    btnValidar.disabled = false;
+    btnValidar.textContent = 'Validar';
+  }
+}
+
+btnValidar.addEventListener('click', validarCodigo);
+codigoInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') validarCodigo();
+});
+
+function renderFoto(foto, acessoPor) {
+  const resultEl = document.getElementById('result');
+
+  document.getElementById('foto').src = foto.foto
+    ? `data:${foto.mimeType || 'image/jpeg'};base64,${foto.foto}`
+    : '';
+  document.getElementById('vDn').textContent = foto.dn || '—';
+  document.getElementById('vLoja').textContent = foto.loja || '—';
+  document.getElementById('vResp').textContent = foto.responsavel || '—';
+  document.getElementById('vData').textContent = foto.createdAt
+    ? new Date(foto.createdAt).toLocaleString('pt-BR')
+    : '—';
+  document.getElementById('vCoord').textContent = (foto.lat && foto.lon)
+    ? `${Number(foto.lat).toFixed(6)}, ${Number(foto.lon).toFixed(6)}`
+    : '—';
+  document.getElementById('vEndereco').textContent = foto.address || '—';
+  document.getElementById('vId').textContent = id;
+  document.getElementById('vHash').textContent = foto.imageHash || '—';
+  document.getElementById('vAcessoPor').textContent = acessoPor || '—';
+
+  resultEl.classList.remove('hidden');
+
+  const fullUrl = window.location.href;
+  document.getElementById('verifyLink').textContent = fullUrl;
+
+  document.getElementById('btnPrint').addEventListener('click', () => {
+    window.print();
+  });
+
+  document.getElementById('btnCopy').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+    } catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = fullUrl;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    btn.classList.add('copied');
+    setTimeout(() => btn.classList.remove('copied'), 1500);
+  });
+}
+</script>
+</body>
+</html>

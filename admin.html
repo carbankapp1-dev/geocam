@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadastro em lote — Códigos de acesso</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #0a1628;
+    color: #eef2f6;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+  main {
+    width: 100%;
+    max-width: 560px;
+    padding: 24px 16px 40px;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #7f93ad; margin-bottom: 20px; }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #9db3cc;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  input, textarea {
+    width: 100%;
+    background: #101f38;
+    border: 1px solid #263c60;
+    color: #eef2f6;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+    margin-bottom: 16px;
+  }
+  input:focus, textarea:focus { border-color: #45d492; }
+  textarea {
+    min-height: 220px;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .example {
+    background: #101f38;
+    border: 1px solid #1b2e4a;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: #7f93ad;
+    margin-bottom: 16px;
+    font-family: monospace;
+    white-space: pre-wrap;
+  }
+  button {
+    width: 100%;
+    padding: 14px 10px;
+    border-radius: 10px;
+    border: none;
+    background: #45d492;
+    color: #0a1628;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button:active:not(:disabled) { opacity: 0.75; }
+  .status {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    display: none;
+  }
+  .status.show { display: block; }
+  .status.ok { background: rgba(69,212,146,0.12); color: #45d492; }
+  .status.err { background: rgba(255,122,122,0.12); color: #ff7a7a; }
+  .count {
+    font-size: 12px;
+    color: #7f93ad;
+    margin: -10px 0 16px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cadastro em lote</h1>
+  <p class="sub">Cadastra vários códigos de acesso de uma vez na coleção <code>codigos_acesso</code>.</p>
+
+  <label for="senha">Senha de administrador</label>
+  <input id="senha" type="password" autocomplete="off" placeholder="Digite a senha">
+
+  <label for="lista">Lista de pessoas</label>
+  <div class="example">Um por linha, neste formato:
+CÓDIGO, Nome completo
+
+Exemplo:
+DKX3KJK, Marcos Alexandre Custodio
+DKX3DRQ, Paoline Helena de Souza Aguiar
+H7P2M4Z, Ana Souza</div>
+  <textarea id="lista" placeholder="COLE AQUI A LISTA, UMA PESSOA POR LINHA"></textarea>
+  <div class="count" id="contagem">0 linha(s) reconhecida(s)</div>
+
+  <button id="btnEnviar">Cadastrar todos</button>
+
+  <div id="status" class="status"></div>
+</main>
+
+<script src="worker-config.js"></script>
+<script>
+const senhaEl = document.getElementById('senha');
+const listaEl = document.getElementById('lista');
+const contagemEl = document.getElementById('contagem');
+const btnEnviar = document.getElementById('btnEnviar');
+const statusEl = document.getElementById('status');
+
+function parseLista(texto) {
+  return texto
+    .split('\n')
+    .map((linha) => linha.trim())
+    .filter((linha) => linha.length > 0)
+    .map((linha) => {
+      const [codigo, ...resto] = linha.split(',');
+      return {
+        codigo: (codigo || '').trim().toUpperCase(),
+        nome: resto.join(',').trim()
+      };
+    })
+    .filter((item) => item.codigo && item.nome);
+}
+
+listaEl.addEventListener('input', () => {
+  const itens = parseLista(listaEl.value);
+  contagemEl.textContent = `${itens.length} linha(s) reconhecida(s)`;
+});
+
+function setStatus(msg, kind) {
+  statusEl.textContent = msg;
+  statusEl.className = 'status show ' + kind;
+}
+
+btnEnviar.addEventListener('click', async () => {
+  const senha = senhaEl.value;
+  const itens = parseLista(listaEl.value);
+
+  if (!senha) {
+    setStatus('Digite a senha de administrador.', 'err');
+    return;
+  }
+  if (itens.length === 0) {
+    setStatus('Nenhuma linha válida encontrada na lista.', 'err');
+    return;
+  }
+
+  btnEnviar.disabled = true;
+  btnEnviar.textContent = 'Cadastrando…';
+  setStatus(`Enviando ${itens.length} pessoa(s)…`, 'ok');
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'admin_add_batch',
+        adminPassword: senha,
+        codigos: itens
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      setStatus('Erro: ' + (data.error || 'falha desconhecida'), 'err');
+    } else {
+      setStatus(`✔ ${data.cadastrados} pessoa(s) cadastrada(s)/atualizada(s) com sucesso.`, 'ok');
+    }
+  } catch (err) {
+    setStatus('Erro de conexão: ' + err.message, 'err');
+  }
+
+  btnEnviar.disabled = false;
+  btnEnviar.textContent = 'Cadastrar todos';
+});
+</script>
+</body>
+</html>

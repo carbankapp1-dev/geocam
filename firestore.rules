@@ -1,0 +1,52 @@
+rules_version = '2';
+
+// ============================================================
+// REGRAS DO FIRESTORE — versão COM CÓDIGO DE ACESSO
+// Cole isso em: Firebase Console > Firestore Database > Regras
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Coleção de fotos — a diferença chave desta versão: NINGUÉM
+    // consegue ler direto pelo navegador (nem sabendo o ID), só
+    // consegue CRIAR (quando o app tira a foto). A leitura só
+    // acontece através do Cloudflare Worker, que usa uma chave de
+    // administrador que ignora estas regras por completo — é o
+    // Worker quem decide, checando o código digitado, se libera
+    // ou não o conteúdo pra quem está do outro lado.
+    match /fotos/{id} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(
+                         ['createdAt','dn','loja','responsavel','lat','lon',
+                          'address','imageHash','foto','mimeType']
+                       )
+                    && request.resource.data.dn is string
+                    && request.resource.data.loja is string
+                    && request.resource.data.responsavel is string
+                    && request.resource.data.foto is string
+                    && request.resource.data.foto.size() < 900000;
+      allow update, delete: if false;
+    }
+
+    // Coleção PRIVADA — guarda o CPF isolado do registro público.
+    // Ninguém consegue ler pelo app (allow read: if false).
+    // Só é visível para quem tiver acesso ao painel do Firebase.
+    match /fotos_privado/{id} {
+      allow read: if false;
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasAll(['cpf','responsavel']);
+      allow update, delete: if false;
+    }
+
+    // Lista de códigos de acesso pessoais. Cadastrada e mantida
+    // manualmente pelo Console do Firebase (ver README.md, Passo 7).
+    // Ninguém lê ou escreve aqui pelo navegador — só o Worker, com
+    // a chave de administrador, que ignora esta regra.
+    match /codigos_acesso/{codigo} {
+      allow read, write: if false;
+    }
+  }
+}
+

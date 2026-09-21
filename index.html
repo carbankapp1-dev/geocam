@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>GeoCam TESTE</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a1628">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GeoCam TESTE">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+<link rel="shortcut icon" href="favicon.ico">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<!-- Gerador de QR Code -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    overscroll-behavior: none;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #0a1628;
+    color: #eef2f6;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    user-select: none;
+  }
+  main {
+    width: 100%;
+    max-width: 480px;
+    padding: calc(10px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .field-row {
+    display: flex;
+    gap: 10px;
+  }
+  .field {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+  }
+  .field.field-dn {
+    flex: 0 0 92px;
+  }
+  .field label {
+    font-size: 12px;
+    color: #9db3cc;
+    font-weight: 600;
+  }
+  .field input {
+    background: #101f38;
+    border: 1px solid #263c60;
+    color: #eef2f6;
+    border-radius: 9px;
+    padding: 10px 11px;
+    font-size: 15px;
+    outline: none;
+    width: 100%;
+    min-width: 0;
+  }
+  .field-dn input {
+    text-align: center;
+    padding: 10px 6px;
+  }
+  .field input:focus {
+    border-color: #45d492;
+  }
+  .stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3/3.5;
+    background: #000;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #1b2e4a;
+  }
+  video, canvas, img.preview {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+  .hidden { display: none !important; }
+  .plate-guide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    pointer-events: none;
+    transform: translateY(10%);
+  }
+  .plate-guide-label {
+    background: rgba(0,0,0,0.55);
+    color: #45d492;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  #plateGuideCloseup {
+    transform: translateY(0);
+  }
+  .plate-guide-frame {
+    width: 30%;
+    aspect-ratio: 2.4/1;
+    border: 3px dashed rgba(255,255,255,0.85);
+    border-radius: 8px;
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.28);
+  }
+  .plate-guide-frame-big {
+    width: 82%;
+    aspect-ratio: 2.4/1;
+  }
+  .status {
+    font-size: 13px;
+    color: #7f93ad;
+    text-align: center;
+    min-height: 18px;
+  }
+  .status.ok { color: #45d492; }
+  .status.err { color: #ff7a7a; }
+  .controls {
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    flex: 1;
+    padding: 14px 10px;
+    border-radius: 11px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: #45d492; color: #0a1628; }
+  .btn-secondary { background: #16233b; color: #eef2f6; border: 1px solid #263c60; }
+  .btn-link {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: #eef2f6;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: underline;
+    padding: 2px 0 4px;
+    margin-top: -4px;
+    cursor: pointer;
+  }
+  .btn-link:active { opacity: 0.6; }
+  button:active:not(:disabled) { opacity: 0.75; }
+  .info-box {
+    background: #101f38;
+    border: 1px solid #1b2e4a;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #b9c7db;
+    line-height: 1.5;
+  }
+  .info-box strong { color: #eef2f6; }
+  #installBtn {
+    display: none;
+    background: #16233b;
+    border: 1px solid #45d492;
+    color: #45d492;
+  }
+  #btnShoot:disabled {
+    opacity: 0.5;
+  }
+</style>
+</head>
+<body>
+
+<main>
+  <div class="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" class="hidden"></canvas>
+    <img id="preview" class="preview hidden" alt="Foto capturada">
+    <div id="plateGuide" class="plate-guide">
+      <div class="plate-guide-label">Posicione a placa aqui</div>
+      <div class="plate-guide-frame"></div>
+    </div>
+    <div id="plateGuideCloseup" class="plate-guide hidden">
+      <div class="plate-guide-label">Agora, foto só da placa</div>
+      <div class="plate-guide-frame plate-guide-frame-big"></div>
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field field-dn">
+      <label for="inputDN">Código DN</label>
+      <input id="inputDN" type="text" inputmode="numeric" maxlength="5" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="inputLoja">Nome da loja</label>
+      <input id="inputLoja" type="text" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field">
+      <label for="inputCPF">CPF do responsável</label>
+      <input id="inputCPF" type="text" inputmode="numeric" maxlength="14" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="inputResp">Nome do responsável</label>
+      <input id="inputResp" type="text" autocomplete="off">
+    </div>
+  </div>
+
+  <div id="status" class="status">Ligando câmera…</div>
+  <button id="btnRestartCamera" class="btn-link">🔄 Câmera travada ou preta? Toque para reiniciar</button>
+
+  <div class="controls">
+    <button id="btnShoot" class="btn-primary" disabled>Tirar foto e compartilhar</button>
+  </div>
+
+  <div id="uploadStatus" class="status hidden"></div>
+
+  <div id="qrHolder" style="display:none;"></div>
+
+  <button id="installBtn">Instalar aplicativo</button>
+
+  <div class="info-box" id="infoBox">
+    Aguardando localização…
+  </div>
+</main>
+
+
+<script>
+const video = document.getElementById('video');
+const plateGuide = document.getElementById('plateGuide');
+const plateGuideCloseup = document.getElementById('plateGuideCloseup');
+let shotStage = 1; // 1 = traseira + placa | 2 = foto só da placa (close-up)
+const canvas = document.getElementById('canvas');
+const preview = document.getElementById('preview');
+const statusEl = document.getElementById('status');
+const infoBox = document.getElementById('infoBox');
+const btnShoot = document.getElementById('btnShoot');
+const uploadStatus = document.getElementById('uploadStatus');
+const inputDN = document.getElementById('inputDN');
+const inputLoja = document.getElementById('inputLoja');
+const inputCPF = document.getElementById('inputCPF');
+const inputResp = document.getElementById('inputResp');
+
+// ---------- Persistência dos campos no aparelho (cache local) ----------
+const FIELDS_STORAGE_KEY = 'camera-geo-campos';
+
+function saveFieldsToStorage() {
+  try {
+    localStorage.setItem(FIELDS_STORAGE_KEY, JSON.stringify({
+      dn: inputDN.value,
+      loja: inputLoja.value,
+      cpf: inputCPF.value,
+      resp: inputResp.value
+    }));
+  } catch (e) { /* localStorage indisponível — ignora silenciosamente */ }
+}
+
+function restoreFieldsFromStorage() {
+  try {
+    const raw = localStorage.getItem(FIELDS_STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    inputDN.value = data.dn || '';
+    inputLoja.value = data.loja || '';
+    inputCPF.value = data.cpf || '';
+    inputResp.value = data.resp || '';
+  } catch (e) { /* ignora dados corrompidos */ }
+}
+
+[inputDN, inputLoja, inputCPF, inputResp].forEach((el) => {
+  el.addEventListener('input', saveFieldsToStorage);
+});
+restoreFieldsFromStorage();
+const installBtn = document.getElementById('installBtn');
+const qrHolder = document.getElementById('qrHolder');
+
+let stream = null;
+let currentCoords = null;
+let currentAddress = 'Endereço não disponível';
+let logoImg = new Image();
+let logoReady = false;
+logoImg.onload = () => { logoReady = true; };
+logoImg.src = 'icons/marca-dagua.png';
+
+function setStatus(msg, kind) {
+  statusEl.textContent = msg;
+  statusEl.className = 'status' + (kind ? ' ' + kind : '');
+}
+function setUploadStatus(msg, kind) {
+  uploadStatus.textContent = msg;
+  uploadStatus.className = 'status' + (kind ? ' ' + kind : '');
+  uploadStatus.classList.remove('hidden');
+}
+
+// ---------- Máscara e validação de CPF ----------
+inputCPF.addEventListener('input', () => {
+  let v = inputCPF.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+  inputCPF.value = v;
+});
+
+function isValidCPF(cpf) {
+  cpf = (cpf || '').replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
+  let rev = 11 - (sum % 11);
+  if (rev >= 10) rev = 0;
+  if (rev !== parseInt(cpf[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
+  rev = 11 - (sum % 11);
+  if (rev >= 10) rev = 0;
+  return rev === parseInt(cpf[10]);
+}
+
+// ---------- Câmera ----------
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false
+    });
+    video.srcObject = stream;
+    setStatus('Câmera pronta', 'ok');
+    btnShoot.disabled = false;
+  } catch (err) {
+    setStatus('Não foi possível acessar a câmera: ' + err.message, 'err');
+  }
+}
+
+// Reinício forçado — para de fato os tracks antigos (mesmo que pareçam
+// "ativos") e reabre o stream do zero. Usado pelo botão manual, para
+// cobrir casos em que a câmera trava sem o navegador avisar (readyState
+// continua "live", mas nenhum frame novo chega).
+async function restartCamera() {
+  setStatus('Reiniciando câmera…');
+  btnShoot.disabled = true;
+  try {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+    }
+  } catch (e) { /* ignora */ }
+  video.srcObject = null;
+  stream = null;
+  await startCamera();
+}
+
+document.getElementById('btnRestartCamera').addEventListener('click', restartCamera);
+
+// Quando o app volta de segundo plano (ex: depois de abrir o WhatsApp pra
+// compartilhar), o navegador costuma pausar o vídeo da câmera. Isso detecta
+// a volta e retoma — ou reinicia a câmera do zero se a permissão/stream
+// tiver sido perdida de fato.
+function resumeCameraIfNeeded() {
+  const track = stream && stream.getVideoTracks && stream.getVideoTracks()[0];
+  if (!track || track.readyState === 'ended') {
+    startCamera();
+  } else {
+    video.play().catch(() => {});
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    resumeCameraIfNeeded();
+  }
+});
+
+window.addEventListener('pageshow', () => {
+  resumeCameraIfNeeded();
+});
+
+// ---------- Geolocalização ----------
+function startGeolocation() {
+  if (!('geolocation' in navigator)) {
+    infoBox.textContent = 'Geolocalização não suportada neste navegador.';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    currentCoords = {
+      lat: pos.coords.latitude,
+      lon: pos.coords.longitude,
+      acc: pos.coords.accuracy
+    };
+    infoBox.innerHTML = '<strong>Coordenadas:</strong> ' +
+      currentCoords.lat.toFixed(6) + ', ' + currentCoords.lon.toFixed(6) +
+      '<br><strong>Endereço:</strong> buscando…';
+    await fetchAddress(currentCoords.lat, currentCoords.lon);
+  }, (err) => {
+    infoBox.textContent = 'Erro ao obter localização: ' + err.message;
+  }, {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 0
+  });
+}
+
+async function fetchAddress(lat, lon) {
+  currentAddress = null;
+
+  // 1ª tentativa: OpenCage (tende a trazer o número da casa/loja com
+  // mais frequência, por agregar mais fontes de dados além do OSM)
+  try {
+    const ocUrl = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${OPENCAGE_API_KEY}&language=pt&no_annotations=1&limit=1`;
+    const res = await fetch(ocUrl);
+    const data = await res.json();
+    if (data.results && data.results[0] && data.results[0].formatted) {
+      currentAddress = data.results[0].formatted;
+    }
+  } catch (err) {
+    // OpenCage indisponível — segue pro fallback abaixo
+  }
+
+  // 2ª tentativa (fallback): Nominatim — sempre disponível, sem chave
+  if (!currentAddress) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+      const res = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } });
+      const data = await res.json();
+      currentAddress = data.display_name || null;
+    } catch (err) {
+      // ignora — cai no texto padrão abaixo
+    }
+  }
+
+  currentAddress = currentAddress || 'Endereço não encontrado';
+  infoBox.innerHTML = '<strong>Coordenadas:</strong> ' +
+    currentCoords.lat.toFixed(6) + ', ' + currentCoords.lon.toFixed(6) +
+    '<br><strong>Endereço:</strong> ' + currentAddress;
+}
+
+// ---------- Captura + marca d'água ----------
+function drawTiledWatermark(ctx, w, h) {
+  if (!logoReady) return;
+  const tileW = Math.max(60, w * 0.14);
+  const scale = tileW / logoImg.width;
+  const tileH = logoImg.height * scale;
+  const gapX = tileW * 0.85;
+  const gapY = tileH * 0.85;
+
+  ctx.save();
+  ctx.globalAlpha = 0.20;
+  for (let y = -tileH; y < h + tileH; y += tileH + gapY) {
+    for (let x = -tileW; x < w + tileW; x += tileW + gapX) {
+      ctx.drawImage(logoImg, x, y, tileW, tileH);
+    }
+  }
+  ctx.restore();
+}
+
+// Reserva espaço à direita para o QR Code quando reservedRight > 0
+function drawInfoOverlay(ctx, w, h, reservedRight) {
+  reservedRight = reservedRight || 0;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+  const coordStr = currentCoords
+    ? `${currentCoords.lat.toFixed(6)}, ${currentCoords.lon.toFixed(6)}`
+    : 'Coordenadas não disponíveis';
+
+  const dn = inputDN.value.trim();
+  const loja = inputLoja.value.trim();
+  const cpf = inputCPF.value.trim();
+  const responsavel = inputResp.value.trim();
+
+  const lines = [];
+  if (dn || loja) {
+    const parts = [];
+    if (dn) parts.push('DN: ' + dn);
+    if (loja) parts.push('Loja: ' + loja);
+    lines.push(parts.join('   •   '));
+  }
+  if (responsavel || cpf) {
+    const parts = [];
+    if (responsavel) parts.push('Responsável: ' + responsavel);
+    if (cpf) parts.push('CPF: ' + cpf);
+    lines.push(parts.join('   •   '));
+  }
+  lines.push(dateStr);
+  lines.push(coordStr);
+  lines.push('Endereço: ' + currentAddress);
+
+  const pad = w * 0.03;
+  const fontSize = Math.max(13, w * 0.032);
+  ctx.font = `${fontSize}px -apple-system, Arial, sans-serif`;
+  ctx.textBaseline = 'bottom';
+
+  const maxWidth = w - pad * 2 - reservedRight;
+  function wrapLine(text) {
+    const words = text.split(' ');
+    const out = [];
+    let line = '';
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        out.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+    if (line) out.push(line);
+    return out;
+  }
+
+  let allLines = [];
+  lines.forEach((l) => { allLines = allLines.concat(wrapLine(l)); });
+
+  const lh = fontSize * 1.35;
+  const boxHeight = Math.max(allLines.length * lh + pad * 1.4, reservedRight > 0 ? reservedRight / 0.78 : 0);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, h - boxHeight, w, boxHeight);
+
+  ctx.fillStyle = '#ffffff';
+  let ty = h - pad * 0.6;
+  for (let i = allLines.length - 1; i >= 0; i--) {
+    ctx.fillText(allLines[i], pad, ty);
+    ty -= lh;
+  }
+
+  return boxHeight;
+}
+
+let rawFrameCanvas = document.createElement('canvas');
+
+function resetToCamera() {
+  preview.classList.add('hidden');
+  video.classList.remove('hidden');
+  uploadStatus.classList.add('hidden');
+  btnShoot.disabled = false;
+  resumeCameraIfNeeded();
+
+  if (shotStage === 1) {
+    plateGuide.classList.remove('hidden');
+    plateGuideCloseup.classList.add('hidden');
+    btnShoot.textContent = 'Tirar foto e compartilhar';
+  } else {
+    plateGuide.classList.add('hidden');
+    plateGuideCloseup.classList.remove('hidden');
+    btnShoot.textContent = 'Tirar foto da placa e compartilhar';
+  }
+}
+
+// ---------- Gerar QR Code e desenhar no canvas ----------
+async function drawQrOnCanvas(ctx, w, h, verifyUrl, boxHeight) {
+  qrHolder.innerHTML = '';
+  const qrSize = Math.round(Math.min(w * 0.24, boxHeight * 0.78));
+
+  await new Promise((resolve) => {
+    new QRCode(qrHolder, {
+      text: verifyUrl,
+      width: qrSize,
+      height: qrSize,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    setTimeout(resolve, 120); // dá tempo da lib renderizar
+  });
+
+  const qrCanvas = qrHolder.querySelector('canvas');
+  const qrImgEl = qrHolder.querySelector('img');
+  const pad = w * 0.03;
+  const boxX = w - qrSize - pad * 1.6;
+  const boxY = h - boxHeight + (boxHeight - qrSize) / 2 - pad * 0.2;
+
+  // fundo branco atrás do QR para garantir leitura
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(boxX - 6, boxY - 6, qrSize + 12, qrSize + 12);
+
+  if (qrCanvas) {
+    ctx.drawImage(qrCanvas, boxX, boxY, qrSize, qrSize);
+  } else if (qrImgEl) {
+    ctx.drawImage(qrImgEl, boxX, boxY, qrSize, qrSize);
+  }
+}
+
+// ---------- Compressão para caber no limite de 1 MB do Firestore ----------
+async function compressToFit(sourceCanvas, maxBase64Len) {
+  let quality = 0.82;
+  let scale = 1;
+
+  for (let attempt = 0; attempt < 9; attempt++) {
+    const w = Math.max(1, Math.round(sourceCanvas.width * scale));
+    const h = Math.max(1, Math.round(sourceCanvas.height * scale));
+
+    let workCanvas = sourceCanvas;
+    if (scale < 1) {
+      workCanvas = document.createElement('canvas');
+      workCanvas.width = w;
+      workCanvas.height = h;
+      workCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0, w, h);
+    }
+
+    const dataUrl = workCanvas.toDataURL('image/jpeg', quality);
+    const base64 = dataUrl.split(',')[1];
+
+    if (base64.length <= maxBase64Len || attempt === 8) {
+      return { dataUrl, base64, width: w, height: h, quality };
+    }
+
+    if (quality > 0.45) {
+      quality -= 0.12;
+    } else {
+      scale *= 0.8;
+    }
+  }
+}
+
+async function sha256FromDataUrl(dataUrl) {
+  const res = await fetch(dataUrl);
+  const buf = await res.arrayBuffer();
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ---------- Compartilhar (WhatsApp etc.) ou baixar a foto ----------
+async function shareOrDownloadPhoto(dataUrl, filename) {
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], filename, { type: 'image/jpeg' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] });
+      return;
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') return; // usuário fechou a tela de compartilhar, tudo bem
+    // qualquer outro erro cai no fallback de download abaixo
+  }
+
+  // Fallback para navegadores sem suporte a compartilhamento de arquivos (ex: desktop)
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = dataUrl;
+  link.click();
+}
+
+// ---------- Ação única: tira a foto, gera QR, envia e salva ----------
+async function shootAndSave() {
+  const cpf = inputCPF.value.trim();
+  const responsavel = inputResp.value.trim();
+
+  if (!responsavel) {
+    setUploadStatus('Preencha o nome do responsável antes de tirar a foto.', 'err');
+    return;
+  }
+  if (!isValidCPF(cpf)) {
+    setUploadStatus('CPF inválido. Confira os números digitados.', 'err');
+    return;
+  }
+
+  btnShoot.disabled = true;
+  btnShoot.textContent = 'Processando…';
+  setUploadStatus('Capturando foto…');
+
+  // Captura o frame atual da câmera
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  canvas.width = w;
+  canvas.height = h;
+  rawFrameCanvas.width = w;
+  rawFrameCanvas.height = h;
+  rawFrameCanvas.getContext('2d').drawImage(video, 0, 0, w, h);
+
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(rawFrameCanvas, 0, 0, w, h);
+  drawTiledWatermark(ctx, w, h);
+  drawInfoOverlay(ctx, w, h, 0);
+  preview.src = canvas.toDataURL('image/jpeg', 0.92);
+  preview.classList.remove('hidden');
+  video.classList.add('hidden');
+  plateGuide.classList.add('hidden');
+  plateGuideCloseup.classList.add('hidden');
+
+  try {
+    const id = (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+    const verifyUrl = `${VERIFY_BASE_URL}?id=${id}`;
+
+    setUploadStatus('Gerando QR Code…');
+    // Redesenha do zero a partir do frame cru, já com espaço reservado pro QR
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(rawFrameCanvas, 0, 0, w, h);
+    drawTiledWatermark(ctx, w, h);
+    const boxHeight = drawInfoOverlay(ctx, w, h, w * 0.28);
+    await drawQrOnCanvas(ctx, w, h, verifyUrl, boxHeight);
+
+    // Versão final em alta qualidade (com QR)
+    const finalDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    preview.src = finalDataUrl;
+
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const dnSlug = inputDN.value.trim().replace(/\s+/g, '-') || 'sem-dn';
+    const tipoFoto = shotStage === 1 ? 'traseira' : 'placa';
+    const filename = `foto-${tipoFoto}-${dnSlug}-${ts}.jpg`;
+
+    // Abre o compartilhamento (WhatsApp, etc.) logo em seguida ao clique,
+    // enquanto o navegador ainda reconhece a ação como iniciada pelo usuário
+    setUploadStatus('Abrindo compartilhamento…');
+    await shareOrDownloadPhoto(finalDataUrl, filename);
+
+    setUploadStatus('Autenticando…');
+    await ensureAuth();
+
+    setUploadStatus('Compactando foto para o banco de dados…');
+    const compressed = await compressToFit(canvas, MAX_FOTO_BASE64_LEN);
+    const imageHash = await sha256FromDataUrl(compressed.dataUrl);
+
+    setUploadStatus('Gravando registro…');
+    const createdAt = firebase.firestore.FieldValue.serverTimestamp();
+
+    await db.collection('fotos').doc(id).set({
+      createdAt,
+      dn: inputDN.value.trim(),
+      loja: inputLoja.value.trim(),
+      responsavel,
+      lat: currentCoords ? currentCoords.lat : null,
+      lon: currentCoords ? currentCoords.lon : null,
+      address: currentAddress,
+      imageHash,
+      foto: compressed.base64,
+      mimeType: 'image/jpeg'
+    });
+
+    await db.collection('fotos_privado').doc(id).set({
+      cpf,
+      responsavel,
+      createdAt
+    });
+
+    if (shotStage === 1) {
+      setUploadStatus('Foto da traseira enviada ✔ — agora tire a foto da placa', 'ok');
+      shotStage = 2;
+    } else {
+      setUploadStatus('Foto da placa enviada ✔ — tudo pronto para o próximo carro', 'ok');
+      shotStage = 1;
+    }
+
+    // Os campos NÃO são limpos — ficam prontos para a segunda foto
+    // (ou para o próximo carro, se o usuário preferir manter os mesmos dados)
+    setTimeout(resetToCamera, 900);
+  } catch (err) {
+    setUploadStatus('Erro ao salvar: ' + err.message, 'err');
+    btnShoot.disabled = false;
+    btnShoot.textContent = shotStage === 1
+      ? 'Tirar foto e compartilhar'
+      : 'Tirar foto da placa e compartilhar';
+  }
+}
+
+btnShoot.addEventListener('click', shootAndSave);
+
+startCamera();
+startGeolocation();
+
+// ---------- PWA: registro do service worker ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+// ---------- PWA: prompt de instalação (Android/Chrome) ----------
+let deferredInstallEvent = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallEvent = e;
+  installBtn.style.display = 'block';
+});
+installBtn.addEventListener('click', async () => {
+  if (!deferredInstallEvent) return;
+  deferredInstallEvent.prompt();
+  await deferredInstallEvent.userChoice;
+  deferredInstallEvent = null;
+  installBtn.style.display = 'none';
+});
+window.addEventListener('appinstalled', () => {
+  installBtn.style.display = 'none';
+});
+</script>
+
+</body>
+</html>
