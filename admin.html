@@ -112,6 +112,13 @@ H7P2M4Z, Ana Souza</div>
   <button id="btnEnviar">Cadastrar todos</button>
 
   <div id="status" class="status"></div>
+
+  <hr style="border-color:#1b2e4a; margin:32px 0 20px;">
+
+  <h1 style="font-size:17px;">Manutenção</h1>
+  <p class="sub">Apaga fotos com mais de 2 dias, liberando espaço no banco de dados (isso já roda sozinho todo dia — use este botão só pra testar ou forçar agora).</p>
+  <button id="btnLimpeza" style="background:#16233b; border:1px solid #ff9d4d; color:#ff9d4d;">🧹 Executar limpeza agora</button>
+  <div id="statusLimpeza" class="status"></div>
 </main>
 
 <script src="worker-config.js"></script>
@@ -187,6 +194,47 @@ btnEnviar.addEventListener('click', async () => {
 
   btnEnviar.disabled = false;
   btnEnviar.textContent = 'Cadastrar todos';
+});
+
+// ---------- Limpeza manual (botão de teste) ----------
+const btnLimpeza = document.getElementById('btnLimpeza');
+const statusLimpezaEl = document.getElementById('statusLimpeza');
+
+function setStatusLimpeza(msg, kind) {
+  statusLimpezaEl.textContent = msg;
+  statusLimpezaEl.className = 'status show ' + kind;
+}
+
+btnLimpeza.addEventListener('click', async () => {
+  const senha = senhaEl.value;
+  if (!senha) {
+    setStatusLimpeza('Digite a senha de administrador (campo lá em cima).', 'err');
+    return;
+  }
+
+  btnLimpeza.disabled = true;
+  btnLimpeza.textContent = 'Limpando…';
+  setStatusLimpeza('Consultando e apagando fotos antigas…', 'ok');
+
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'admin_cleanup_now', adminPassword: senha })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      setStatusLimpeza('Erro: ' + (data.error || 'falha desconhecida'), 'err');
+    } else {
+      setStatusLimpeza(`✔ ${data.apagadas} foto(s) apagada(s) (mais de 2 dias).`, 'ok');
+    }
+  } catch (err) {
+    setStatusLimpeza('Erro de conexão: ' + err.message, 'err');
+  }
+
+  btnLimpeza.disabled = false;
+  btnLimpeza.textContent = '🧹 Executar limpeza agora';
 });
 </script>
 </body>
