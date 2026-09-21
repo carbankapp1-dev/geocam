@@ -5,16 +5,15 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey: "SUBSTITUA_AQUI",
-  authDomain: "SUBSTITUA_AQUI.firebaseapp.com",
-  projectId: "SUBSTITUA_AQUI",
-  messagingSenderId: "SUBSTITUA_AQUI",
-  appId: "SUBSTITUA_AQUI"
+  apiKey: "AIzaSyBAN6NhMVken_jCUy_HwY51lvafrZbMq8A",
+  authDomain: "geocamv3.firebaseapp.com",
+  projectId: "geocamv3",
+  messagingSenderId: "22690765272",
+  appId: "1:22690765272:web:4d2ad2206cb52f34727aad"
 };
 
-// URL pública onde este site de teste vai ficar hospedado
-// (ex: um repositório novo no GitHub Pages, ou uma subpasta /teste)
-const VERIFY_BASE_URL = "https://SEU-USUARIO.github.io/SEU-REPOSITORIO-TESTE/verify.html";
+// URL pública onde este site de teste está hospedado
+const VERIFY_BASE_URL = "https://carbankapp1-dev.github.io/geocam/verify.html";
 
 // Chave do OpenCage Geocoder.
 const OPENCAGE_API_KEY = "6a31f09acc5d42cfb073514d739e6cb5";
